@@ -63,12 +63,15 @@
 
     .composer{position:fixed;left:0;right:0;bottom:0;padding:8px 12px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 28%)}
     .attach-row{max-width:800px;margin:0 auto 6px;display:flex;flex-wrap:wrap;gap:6px}
-    .att{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:.76rem}
-    .att button{background:none;border:none;color:var(--muted);font-size:1rem;padding:0 2px;cursor:pointer}
+    .att{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:.76rem;max-width:100%}
+    .att .thumb{width:30px;height:30px;object-fit:cover;border-radius:6px;flex-shrink:0}
+    .att button{background:none;border:none;color:var(--muted);font-size:1rem;padding:0 2px;cursor:pointer;min-width:28px;min-height:28px}
+    .att.loading{opacity:.55}
+    .composer-actions{display:flex;gap:4px;flex-shrink:0}
     .box{max-width:800px;margin:0 auto;background:var(--panel);border:2px solid var(--border);border-radius:20px;display:flex;gap:6px;padding:8px 10px;align-items:flex-end}
     .box:focus-within{border-color:var(--accent)}
     textarea{flex:1;border:none;outline:none;background:transparent;color:var(--text);font:inherit;font-size:16px;line-height:1.4;max-height:140px;resize:none;padding:8px 0}
-    #fileIn{display:none}
+    #fileIn,#cameraIn{display:none}
 
     .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:none}
     .backdrop.open{display:block}
@@ -169,8 +172,12 @@
   <div class="composer">
     <div class="attach-row" id="atts"></div>
     <div class="box">
-      <button class="ib sec" id="attachBtn" title="Прикрепить файл">📎</button>
-      <input type="file" id="fileIn" multiple accept=".txt,.md,.py,.js,.ts,.json,.csv,.html,.xml,.yaml,.yml,.java,.cpp,.c,.go,.rs,.sql,.log,.ini,.cfg,.toml"/>
+      <div class="composer-actions">
+        <button class="ib sec" id="attachBtn" title="Файлы: текст, код, PDF, Word, Excel, фото">📎</button>
+        <button class="ib sec" id="cameraBtn" title="Сделать фото">📷</button>
+      </div>
+      <input type="file" id="fileIn" multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.json,.csv,.html,.xml,.yaml,.yml,.java,.cpp,.c,.h,.cs,.go,.rs,.rb,.php,.swift,.kt,.sh,.bat,.ps1,.sql,.log,.ini,.cfg,.toml,.pdf,.docx,.xlsx,.xls,.rtf,.vue,.svelte,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,image/*"/>
+      <input type="file" id="cameraIn" accept="image/*" capture="environment"/>
       <textarea id="input" rows="1" placeholder="Сообщение..."></textarea>
       <button class="ib" id="sendBtn" title="Отправить">➤</button>
     </div>
@@ -213,7 +220,12 @@ const MODES={
     p:"Ты — преподаватель MiMo. Объясняй от простого к сложному.",
     sg:["Основы Python","Теорема Пифагора","Что такое ML?","Как работает DNS?"]}
 };
-const TEXT_EXTS=[".txt",".md",".py",".js",".ts",".json",".csv",".html",".xml",".yaml",".yml",".java",".cpp",".c",".go",".rs",".sql",".log",".ini",".cfg",".toml"];
+const TEXT_EXTS=[".txt",".md",".py",".js",".ts",".jsx",".tsx",".json",".csv",".html",".htm",".xml",".yaml",".yml",".java",".cpp",".c",".h",".hpp",".cs",".go",".rs",".rb",".php",".swift",".kt",".kts",".sh",".bash",".bat",".ps1",".sql",".log",".ini",".cfg",".toml",".env",".vue",".svelte",".scss",".css",".less",".r",".lua",".pl",".dockerfile",".gitignore",".rtf"];
+const IMAGE_EXTS=[".jpg",".jpeg",".png",".gif",".webp",".bmp",".heic",".heif"];
+const PDF_EXTS=[".pdf"];
+const DOCX_EXTS=[".docx"];
+const XLSX_EXTS=[".xlsx",".xls"];
+const MAX_TEXT=500000, MAX_IMAGE=4000000, MAX_DOC=8000000;
 
 let state=loadState();
 let chatId=state.activeId;
@@ -461,8 +473,106 @@ function render(){
 }
 
 function formatUser(text){
-  return text.replace(/\[Файл: ([^\]]+)\]\n```[\s\S]*?```\n\n/g,(_,n)=>`<span class="file-tag">📎 ${esc(n)}</span><br>`)
+  return text
+    .replace(/\[Изображение: ([^\]]+)\]/g,(_,n)=>`<span class="file-tag">📷 ${esc(n)}</span><br>`)
+    .replace(/\[Файл: ([^\]]+)\]\n```[\s\S]*?```\n\n/g,(_,n)=>`<span class="file-tag">📎 ${esc(n)}</span><br>`)
     .replace(/^(?!<span)/,s=>esc(s).replace(/\n/g,"<br>"));
+}
+
+function fileExt(name){return"."+(name.split(".").pop()||"").toLowerCase();}
+function fileKind(ext){
+  if(IMAGE_EXTS.includes(ext))return"image";
+  if(PDF_EXTS.includes(ext))return"pdf";
+  if(DOCX_EXTS.includes(ext))return"docx";
+  if(XLSX_EXTS.includes(ext))return"xlsx";
+  if(TEXT_EXTS.includes(ext))return"text";
+  return null;
+}
+function attIcon(kind){return{image:"📷",pdf:"📄",docx:"📄",xlsx:"📊",text:"📝"}[kind]||"📎";}
+
+function loadScript(src){
+  if(document.querySelector(`script[data-src="${src}"]`))return Promise.resolve();
+  return new Promise((ok,no)=>{
+    const s=document.createElement("script");
+    s.src=src;s.dataset.src=src;s.onload=ok;s.onerror=()=>no(new Error("Не удалось загрузить "+src));
+    document.head.appendChild(s);
+  });
+}
+
+function readDataUrl(file){
+  return new Promise((ok,no)=>{
+    const r=new FileReader();
+    r.onload=()=>ok(r.result);
+    r.onerror=no;
+    r.readAsDataURL(file);
+  });
+}
+
+async function compressImage(dataUrl,maxDim=1400,quality=.8){
+  return new Promise((ok,no)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let{width:w,height:h}=img;
+      if(w>maxDim||h>maxDim){
+        if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}
+      }
+      const c=document.createElement("canvas");
+      c.width=w;c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      ok(c.toDataURL("image/jpeg",quality));
+    };
+    img.onerror=no;
+    img.src=dataUrl;
+  });
+}
+
+async function extractPdfText(file){
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  let text="";
+  const pages=Math.min(pdf.numPages,25);
+  for(let i=1;i<=pages;i++){
+    const page=await pdf.getPage(i);
+    const tc=await page.getTextContent();
+    text+=tc.items.map(x=>x.str).join(" ")+"\n";
+  }
+  if(pdf.numPages>pages)text+=`\n[... ещё ${pdf.numPages-pages} стр.]`;
+  return text.trim();
+}
+
+async function extractDocxText(file){
+  await loadScript("https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js");
+  const r=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});
+  return(r.value||"").trim();
+}
+
+async function extractXlsxText(file){
+  await loadScript("https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js");
+  const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
+  let out="";
+  wb.SheetNames.forEach(n=>{out+=`[Лист: ${n}]\n`+XLSX.utils.sheet_to_csv(wb.Sheets[n])+"\n";});
+  return out.trim();
+}
+
+async function processFile(file){
+  const ext=fileExt(file.name);
+  const kind=fileKind(ext);
+  if(!kind)throw new Error(`Формат ${ext} не поддерживается`);
+  if(kind==="text"&&file.size>MAX_TEXT)throw new Error(`${file.name}: макс. ${Math.round(MAX_TEXT/1024)} KB`);
+  if(kind==="image"&&file.size>MAX_IMAGE)throw new Error(`${file.name}: макс. ${Math.round(MAX_IMAGE/1024/1024)} MB`);
+  if(kind!=="text"&&kind!=="image"&&file.size>MAX_DOC)throw new Error(`${file.name}: макс. ${Math.round(MAX_DOC/1024/1024)} MB`);
+
+  if(kind==="text")return{kind,name:file.name,size:file.size,content:await file.text()};
+  if(kind==="image"){
+    let dataUrl=await readDataUrl(file);
+    if(file.size>900000)dataUrl=await compressImage(dataUrl);
+    return{kind,name:file.name,size:file.size,dataUrl,mime:file.type||"image/jpeg"};
+  }
+  if(kind==="pdf")return{kind,name:file.name,size:file.size,content:await extractPdfText(file)};
+  if(kind==="docx")return{kind,name:file.name,size:file.size,content:await extractDocxText(file)};
+  if(kind==="xlsx")return{kind,name:file.name,size:file.size,content:await extractXlsxText(file)};
+  throw new Error("Неизвестный тип файла");
 }
 
 function addMsg(role,content,anim=true){
@@ -485,39 +595,73 @@ function getPrompt(){
 }
 
 async function onFiles(e){
-  for(const f of e.target.files){
-    const ext="."+(f.name.split(".").pop()||"").toLowerCase();
-    if(!TEXT_EXTS.includes(ext)){alert(`Формат ${ext} не поддерживается`);continue;}
-    if(f.size>500000){alert(f.name+" слишком большой (макс. 500 KB)");continue;}
-    try{atts.push({name:f.name,size:f.size,content:await f.text()});}catch(_){}
+  const files=[...e.target.files];
+  e.target.value="";
+  if(!files.length)return;
+  $("attachBtn").disabled=true;
+  $("status").textContent="● Обработка файлов...";
+  for(const f of files){
+    try{
+      const item=await processFile(f);
+      atts.push(item);
+      renderAtts();
+    }catch(err){
+      alert(err.message||String(err));
+    }
   }
-  e.target.value="";renderAtts();
+  $("attachBtn").disabled=false;
+  setSyncStatus(getSyncUrl()?"☁ Онлайн":"☁ Локально");
+  renderAtts();
 }
 
 function renderAtts(){
-  $("atts").innerHTML=atts.map((a,i)=>`<span class="att">📎 ${esc(a.name)} <span style="color:var(--muted)">(${Math.round(a.size/1024)}KB)</span><button onclick="rmAtt(${i})">×</button></span>`).join("");
+  $("atts").innerHTML=atts.map((a,i)=>{
+    const thumb=a.kind==="image"&&a.dataUrl?`<img class="thumb" src="${a.dataUrl}" alt=""/>`:"";
+    const kb=Math.max(1,Math.round(a.size/1024));
+    return`<span class="att">${thumb}${attIcon(a.kind)} ${esc(a.name)} <span style="color:var(--muted)">(${kb}KB)</span><button onclick="rmAtt(${i})">×</button></span>`;
+  }).join("");
 }
 function rmAtt(i){atts.splice(i,1);renderAtts();}
 
-function buildContent(text){
-  const parts=atts.map(a=>`[Файл: ${a.name}]\n\`\`\`\n${a.content}\n\`\`\``);
+function buildDisplayContent(text,list){
+  const parts=(list||[]).map(a=>{
+    if(a.kind==="image")return`[Изображение: ${a.name}]`;
+    const body=(a.content||"").slice(0,80000);
+    return`[Файл: ${a.name}]\n\`\`\`\n${body}\n\`\`\``;
+  });
   if(text)parts.push(text);
   return parts.join("\n\n");
+}
+
+function buildApiContent(text,list){
+  const items=(list||[]);
+  const hasImages=items.some(a=>a.kind==="image");
+  if(!hasImages)return buildDisplayContent(text,list);
+  const parts=[];
+  for(const a of items){
+    if(a.kind==="image")parts.push({type:"image_url",image_url:{url:a.dataUrl}});
+    else parts.push({type:"text",text:`[Файл: ${a.name}]\n\`\`\`\n${(a.content||"").slice(0,80000)}\n\`\`\``});
+  }
+  if(text)parts.push({type:"text",text});
+  return parts;
 }
 
 async function send(text,regen=false){
   if(busy&&!regen)return;
   const chat=cur();
-  let userText=regen?"":buildContent((text||$("input").value).trim());
+  const typed=(text||$("input").value).trim();
+  const sendAtts=regen?[]:[...atts];
+  const displayContent=regen?"":buildDisplayContent(typed,sendAtts);
+  const apiUserContent=regen?null:buildApiContent(typed,sendAtts);
 
   if(regen){
     if(!chat.messages.length||chat.messages.at(-1).role!=="assistant")return;
     chat.messages.pop();
     saveState();render();
   }else{
-    if(!userText)return;
-    if(chat.title==="Новый чат")chat.title=(text||$("input").value).trim().slice(0,42)||"Чат с файлами";
-    chat.messages.push({role:"user",content:userText});
+    if(!displayContent)return;
+    if(chat.title==="Новый чат")chat.title=typed.slice(0,42)||(sendAtts.length?"Чат с файлами":"Новый чат");
+    chat.messages.push({role:"user",content:displayContent});
     chat.updatedAt=Date.now();
     $("input").value="";atts=[];renderAtts();autoResize();
     saveState();renderAll();
@@ -527,6 +671,10 @@ async function send(text,regen=false){
   setLoading(true);
   abortCtrl=new AbortController();
 
+  const apiMessages=regen
+    ?[{role:"system",content:getPrompt()},...chat.messages.map(m=>({role:m.role,content:m.content}))]
+    :[{role:"system",content:getPrompt()},...chat.messages.slice(0,-1).map(m=>({role:m.role,content:m.content})),{role:"user",content:apiUserContent}];
+
   try{
     const res=await fetch(API_URL,{
       method:"POST",
@@ -534,7 +682,7 @@ async function send(text,regen=false){
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+API_KEY},
       body:JSON.stringify({
         model:$("modelSel").value,
-        messages:[{role:"system",content:getPrompt()},...chat.messages],
+        messages:apiMessages,
         temperature:+S().temperature,
         max_tokens:+S().max_tokens,
         stream:true
@@ -618,7 +766,9 @@ async function init(){
   $("input").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
   $("input").oninput=autoResize;
   $("attachBtn").onclick=()=>$("fileIn").click();
+  $("cameraBtn").onclick=()=>$("cameraIn").click();
   $("fileIn").onchange=onFiles;
+  $("cameraIn").onchange=onFiles;
 
   $("chatsBtn").onclick=openDrawer;
   $("backdrop").onclick=()=>{closeDrawer();closeSettings();};
