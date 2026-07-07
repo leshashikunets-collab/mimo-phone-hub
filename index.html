@@ -17,16 +17,21 @@
     .header{background:var(--panel);border-bottom:2px solid var(--accent);padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
     .brand{font-weight:800;font-size:1rem;margin-right:auto}
     .ctrl{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:.85rem;font-weight:600;min-width:0;flex:1}
-    .modes{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch}
-    .chip{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:999px;padding:7px 12px;font-size:.82rem;white-space:nowrap;flex-shrink:0}
+    .ib{width:40px;height:40px;border:none;border-radius:10px;background:var(--accent);color:#111;font-size:1rem;font-weight:900;flex-shrink:0;cursor:pointer}
+    .ib.sec{background:var(--panel);border:1px solid var(--border);color:var(--text)}
+    .modes{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--border)}
+    .chip{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:999px;padding:7px 12px;font-size:.82rem;white-space:nowrap;cursor:pointer}
     .chip.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:700}
-    .msgs{flex:1;overflow-y:auto;padding:12px 12px 100px;-webkit-overflow-scrolling:touch}
+    .bar{padding:6px 12px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);background:#141418}
+    .bar .title{flex:1;font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .status{font-size:.74rem;color:var(--muted);text-align:center;padding:4px}
+    .msgs{flex:1;overflow-y:auto;padding:12px 12px 100px}
     .inner{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
     .welcome{text-align:center;padding:30px 10px}
     .welcome h1{margin:0 0 8px;font-size:1.6rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
     .welcome p{color:var(--muted);font-size:.9rem}
     .sg{display:grid;grid-template-columns:1fr;gap:8px;margin-top:16px}
-    .sg button{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);text-align:left;font-size:.9rem}
+    .sg button{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);text-align:left}
     .msg{display:grid;grid-template-columns:32px 1fr;gap:10px}
     .av{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:.72rem;font-weight:700;background:var(--panel);border:1px solid var(--border)}
     .av.ai{background:var(--grad);color:#111;border:none}
@@ -35,26 +40,48 @@
     .bubble pre{background:#0a0a0f;border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;font-size:.82rem}
     .composer{position:fixed;left:0;right:0;bottom:0;padding:8px 12px 16px;background:linear-gradient(transparent,var(--bg) 25%)}
     .attach-row{max-width:800px;margin:0 auto 6px;display:flex;flex-wrap:wrap;gap:5px}
-    .att{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:.75rem;display:flex;gap:6px;align-items:center}
+    .att{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:.75rem}
     .box{max-width:800px;margin:0 auto;background:var(--panel);border:2px solid var(--border);border-radius:18px;display:flex;gap:6px;padding:8px 10px;align-items:flex-end}
     .box:focus-within{border-color:var(--accent)}
     textarea{flex:1;border:none;outline:none;background:transparent;color:var(--text);font:inherit;font-size:16px;line-height:1.4;max-height:120px;resize:none;padding:6px 0}
-    .ib{width:40px;height:40px;border:none;border-radius:10px;background:var(--accent);color:#111;font-size:1.1rem;font-weight:900;flex-shrink:0}
-    .ib.sec{background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:1rem}
-    .ib:disabled{opacity:.4}
     #fileIn{display:none}
-    .status{font-size:.75rem;color:var(--muted);width:100%;text-align:center}
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none}
+    .backdrop.open{display:block}
+    .drawer{position:fixed;top:0;left:0;width:min(320px,88vw);height:100dvh;background:var(--panel);border-right:1px solid var(--border);z-index:50;transform:translateX(-105%);transition:.2s;display:flex;flex-direction:column}
+    .drawer.open{transform:translateX(0)}
+    .drawer-head{padding:14px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center}
+    .drawer-head b{flex:1}
+    .drawer-list{flex:1;overflow-y:auto}
+    .chat-item{padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:8px;align-items:center}
+    .chat-item.on{background:var(--accent-soft)}
+    .chat-item .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.88rem}
+    .chat-item .x{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:0 4px}
+    .btn-sm{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;padding:6px 10px;font-size:.8rem;cursor:pointer}
   </style>
 </head>
 <body>
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <b>Диалоги</b>
+    <button class="btn-sm" id="newChatBtn">+ Новый</button>
+    <button class="btn-sm" id="closeDrawer">✕</button>
+  </div>
+  <div class="drawer-list" id="chatList"></div>
+</aside>
 <div class="app">
   <div class="header">
-    <div class="brand">🤖 MiMo</div>
+    <button class="ib sec" id="chatsBtn" title="Диалоги">💬</button>
+    <div class="brand">MiMo</div>
     <select class="ctrl" id="modelSel"></select>
     <select class="ctrl" id="modeSel"></select>
   </div>
   <div class="modes" id="modes"></div>
-  <div class="status" id="status">Готов · работает автономно с телефона</div>
+  <div class="bar">
+    <div class="title" id="chatTitle">Новый чат</div>
+    <button class="btn-sm" id="newChatBtn2">+ Новый</button>
+  </div>
+  <div class="status" id="status">Готов</div>
   <div class="msgs" id="msgs"><div class="inner" id="inner"></div></div>
   <div class="composer">
     <div class="attach-row" id="atts"></div>
@@ -67,38 +94,85 @@
   </div>
 </div>
 <script>
-const API_URL = "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions";
-const API_KEY = "tp-sul5stc88h1g1yd1s265411sw1qrmh1m4z53pi94jffwx7fe";
-const MODELS = [
-  {id:"mimo-v2.5-pro", name:"MiMo Pro"},
-  {id:"mimo-v2.5", name:"MiMo v2.5"}
-];
-const MODES = {
+const API_URL="https://token-plan-sgp.xiaomimimo.com/v1/chat/completions";
+const API_KEY="tp-sul5stc88h1g1yd1s265411sw1qrmh1m4z53pi94jffwx7fe";
+const STORAGE_KEY="mimo_chats_v2";
+const MODELS=[{id:"mimo-v2.5-pro",name:"MiMo Pro"},{id:"mimo-v2.5",name:"MiMo v2.5"}];
+const MODES={
   chat:{name:"Чат",icon:"💬",t:.7,tokens:2000,p:"Ты — MiMo, полезный ассистент Xiaomi. Отвечай на русском.",sg:["Что ты умеешь?","Помоги спланировать день","Объясни простыми словами","Совет по продуктивности"]},
   code:{name:"Код",icon:"💻",t:.3,tokens:4000,p:"Ты — эксперт-программист MiMo. Пиши чистый код с комментариями.",sg:["REST API на Python","Найди ошибку в коде","Объясни async/await","SQL с JOIN"]},
   creative:{name:"Творчество",icon:"✨",t:.95,tokens:3000,p:"Ты — креативный писатель MiMo.",sg:["Сюжет sci-fi","Пост для соцсетей","Названия стартапа","Персонаж RPG"]},
   analyst:{name:"Аналитик",icon:"📊",t:.4,tokens:3000,p:"Ты — аналитик MiMo. Структурируй ответы, таблицы, плюсы/минусы.",sg:["SWOT-анализ","Сравни в таблице","Разбери гипотезу","План исследования"]},
-  teacher:{name:"Учитель",icon:"📚",t:.5,tokens:2500,p:"Ты — преподаватель MiMo. Объясняй от простого к сложному.",sg:["Основы Python","Теорема Пифагора","Что такое ML?","Как работает DNS?"]},
+  teacher:{name:"Учитель",icon:"📚",t:.5,tokens:2500,p:"Ты — преподаватель MiMo. Объясняй от простого к сложному.",sg:["Основы Python","Теорема Пифагора","Что такое ML?","Как работает DNS?"]}
 };
-let mode="chat", msgs=[], atts=[], busy=false;
+let mode="chat", atts=[], busy=false;
+let state=loadState();
+let chatId=state.activeId;
 
 const $=id=>document.getElementById(id);
-function load(){try{return JSON.parse(localStorage.getItem("mimo_phone")||"null")}catch(_){}return null}
-function save(){localStorage.setItem("mimo_phone",JSON.stringify({mode,msgs:msgs.slice(-50)}))}
+function defaultState(){const id=crypto.randomUUID();return{activeId:id,chats:{[id]:{id,title:"Новый чат",messages:[],mode:"chat",updatedAt:Date.now()}}};}
+function loadState(){
+  try{
+    const r=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");
+    if(r&&r.chats)return r;
+    const old=JSON.parse(localStorage.getItem("mimo_phone")||"null");
+    if(old&&old.msgs&&old.msgs.length){
+      const id=crypto.randomUUID();
+      return{activeId:id,chats:{[id]:{id,title:"Сохранённый чат",messages:old.msgs,mode:old.mode||"chat",updatedAt:Date.now()}}};
+    }
+  }catch(_){}
+  return defaultState();
+}
+function saveState(){state.activeId=chatId;localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+function cur(){return state.chats[chatId];}
+
+function openDrawer(){$("drawer").classList.add("open");$("backdrop").classList.add("open");}
+function closeDrawer(){$("drawer").classList.remove("open");$("backdrop").classList.remove("open");}
+
+function createChat(){
+  const id=crypto.randomUUID();
+  state.chats[id]={id,title:"Новый чат",messages:[],mode,updatedAt:Date.now()};
+  chatId=id; atts=[]; renderAtts(); saveState(); renderAll(); closeDrawer();
+}
+function deleteChat(id,e){
+  e.stopPropagation();
+  if(Object.keys(state.chats).length<=1){state.chats[id].messages=[];state.chats[id].title="Новый чат";saveState();renderAll();return;}
+  delete state.chats[id];
+  if(chatId===id) chatId=Object.keys(state.chats)[0];
+  saveState(); renderAll();
+}
+function switchChat(id){chatId=id;mode=state.chats[id].mode||mode;$("modeSel").value=mode;atts=[];renderAtts();saveState();renderAll();closeDrawer();}
+
+function renderChatList(){
+  $("chatList").innerHTML="";
+  Object.values(state.chats).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(c=>{
+    const row=document.createElement("div");
+    row.className="chat-item"+(c.id===chatId?" on":"");
+    const ic=MODES[c.mode||"chat"]?.icon||"💬";
+    row.innerHTML=`<span class="t">${ic} ${c.title}</span><button class="x" title="Удалить">×</button>`;
+    row.onclick=()=>switchChat(c.id);
+    row.querySelector(".x").onclick=e=>deleteChat(c.id,e);
+    $("chatList").appendChild(row);
+  });
+}
 
 function init(){
   $("modelSel").innerHTML=MODELS.map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
   $("modeSel").innerHTML=Object.entries(MODES).map(([k,m])=>`<option value="${k}">${m.icon} ${m.name}</option>`).join("");
-  const s=load();
-  if(s){mode=s.mode||"chat";msgs=s.msgs||[];$("modeSel").value=mode}
-  renderModes(); render();
+  mode=cur().mode||"chat"; $("modeSel").value=mode;
+  renderModes(); renderAll();
   $("modeSel").onchange=()=>setMode($("modeSel").value);
   $("sendBtn").onclick=()=>send();
   $("input").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
   $("attachBtn").onclick=()=>$("fileIn").click();
   $("fileIn").onchange=onFiles;
+  $("chatsBtn").onclick=openDrawer;
+  $("backdrop").onclick=closeDrawer;
+  $("closeDrawer").onclick=closeDrawer;
+  $("newChatBtn").onclick=createChat;
+  $("newChatBtn2").onclick=createChat;
 }
-function setMode(k){mode=k;renderModes();render();save()}
+function setMode(k){mode=k;cur().mode=k;renderModes();render();saveState();}
 function renderModes(){
   $("modes").innerHTML="";
   Object.entries(MODES).forEach(([k,m])=>{
@@ -109,20 +183,20 @@ function renderModes(){
     $("modes").appendChild(b);
   });
 }
+function renderAll(){renderChatList();$("chatTitle").textContent=cur().title;render();}
 function render(){
   const inner=$("inner"); inner.innerHTML="";
-  const m=MODES[mode];
+  const m=MODES[mode]; const msgs=cur().messages;
   if(!msgs.length){
-    inner.innerHTML=`<div class="welcome"><h1>${m.icon} ${m.name}</h1><p>Работает с телефона без ПК. Нужен только интернет.</p><div class="sg" id="sg"></div></div>`;
-    m.sg.forEach(t=>{const b=document.createElement("button");b.textContent=t;b.onclick=()=>send(t);$("sg").appendChild(b)});
+    inner.innerHTML=`<div class="welcome"><h1>${m.icon} ${m.name}</h1><p>Диалоги сохраняются автоматически. Нажмите 💬 для истории.</p><div class="sg" id="sg"></div></div>`;
+    m.sg.forEach(t=>{const b=document.createElement("button");b.textContent=t;b.onclick=()=>send(t);$("sg").appendChild(b);});
     return;
   }
   msgs.forEach(x=>addMsg(x.role,x.content,false));
   scroll();
 }
 function addMsg(role,content,anim=true){
-  const d=document.createElement("div");
-  d.className="msg "+role;
+  const d=document.createElement("div"); d.className="msg "+role;
   const html=role==="assistant"?marked.parse(content||""):esc(content).replace(/\n/g,"<br>");
   d.innerHTML=`<div class="av ${role==="assistant"?"ai":""}">${role==="user"?"Вы":"M"}</div><div class="bubble">${html}</div>`;
   $("inner").appendChild(d);
@@ -131,74 +205,61 @@ function addMsg(role,content,anim=true){
 }
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function scroll(){$("msgs").scrollTop=$("msgs").scrollHeight}
-
 async function onFiles(e){
   for(const f of e.target.files){
     if(f.size>300000){alert(f.name+" слишком большой");continue}
-    try{atts.push({name:f.name,content:await f.text()})}catch(_){alert("Не удалось прочитать "+f.name)}
+    try{atts.push({name:f.name,content:await f.text()})}catch(_){}
   }
   e.target.value=""; renderAtts();
 }
 function renderAtts(){
-  $("atts").innerHTML="";
-  atts.forEach((a,i)=>{
-    const d=document.createElement("div");
-    d.className="att";
-    d.innerHTML=`📎 ${a.name} <button onclick="rmAtt(${i})">×</button>`;
-    $("atts").appendChild(d);
-  });
+  $("atts").innerHTML=atts.map((a,i)=>`<span class="att">📎 ${a.name} <button onclick="rmAtt(${i})">×</button></span>`).join("");
 }
-function rmAtt(i){atts.splice(i,1);renderAtts()}
+function rmAtt(i){atts.splice(i,1);renderAtts();}
 
 async function send(text){
   if(busy)return;
+  const chat=cur();
   let user=(text||$("input").value).trim();
-  let parts=[];
-  atts.forEach(a=>parts.push(`[Файл: ${a.name}]\n\`\`\`\n${a.content}\n\`\`\``));
+  let parts=[]; atts.forEach(a=>parts.push(`[Файл: ${a.name}]\n\`\`\`\n${a.content}\n\`\`\``));
   if(user)parts.push(user);
   const content=parts.join("\n\n");
   if(!content)return;
-  msgs.push({role:"user",content});
-  $("input").value=""; atts=[]; renderAtts(); save(); render();
+  if(chat.title==="Новый чат") chat.title=(user||"Чат с файлами").slice(0,42);
+  chat.messages.push({role:"user",content});
+  chat.updatedAt=Date.now();
+  $("input").value=""; atts=[]; renderAtts(); saveState(); renderAll();
   const bubble=addMsg("assistant","");
   busy=true; $("sendBtn").disabled=true; $("status").textContent="MiMo думает...";
   const m=MODES[mode];
-  const apiMsgs=[{role:"system",content:m.p},...msgs];
   try{
-    const res=await fetch(API_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+API_KEY},
-      body:JSON.stringify({model:$("modelSel").value,messages:apiMsgs,temperature:m.t,max_tokens:m.tokens,stream:true})
-    });
+    const res=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+API_KEY},
+      body:JSON.stringify({model:$("modelSel").value,messages:[{role:"system",content:m.p},...chat.messages],temperature:m.t,max_tokens:m.tokens,stream:true})});
     if(!res.ok)throw new Error(await res.text());
-    const reader=res.body.getReader();
-    const dec=new TextDecoder();
+    const reader=res.body.getReader(); const dec=new TextDecoder();
     let buf="", reply="";
     while(true){
-      const {value,done}=await reader.read();
-      if(done)break;
+      const {value,done}=await reader.read(); if(done)break;
       buf+=dec.decode(value,{stream:true});
-      const lines=buf.split("\n");
-      buf=lines.pop()||"";
+      const lines=buf.split("\n"); buf=lines.pop()||"";
       for(const line of lines){
         if(!line.startsWith("data: "))continue;
-        const p=line.slice(6).trim();
-        if(!p||p==="[DONE]")continue;
+        const p=line.slice(6).trim(); if(!p||p==="[DONE]")continue;
         try{
           const j=JSON.parse(p);
           if(j.error)throw new Error(j.error.message||JSON.stringify(j.error));
           if(!j.choices||!j.choices.length)continue;
           const c=j.choices[0].delta?.content;
-          if(c){reply+=c;bubble.innerHTML=marked.parse(reply);scroll()}
-        }catch(e){if(e.message&&!e.message.includes("JSON"))throw e}
+          if(c){reply+=c;bubble.innerHTML=marked.parse(reply);scroll();}
+        }catch(e){if(e.message&&!e.message.includes("JSON"))throw e;}
       }
     }
-    msgs.push({role:"assistant",content:reply});
-    save();
+    chat.messages.push({role:"assistant",content:reply});
+    chat.updatedAt=Date.now(); saveState(); renderChatList();
   }catch(e){
     bubble.innerHTML=`<span style="color:#ff6b6b">Ошибка: ${esc(e.message)}</span>`;
   }finally{
-    busy=false;$("sendBtn").disabled=false;$("status").textContent="Готов · работает автономно с телефона";
+    busy=false;$("sendBtn").disabled=false;$("status").textContent="Готов";
   }
 }
 init();
