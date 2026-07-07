@@ -90,7 +90,9 @@
     .sheet-body{padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
     .field label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px}
     .field input[type=range]{width:100%}
-    .field textarea{width:100%;min-height:72px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;resize:vertical;font-size:.85rem}
+    .field textarea,.field input[type=text],.field input[type=url]{width:100%;min-height:44px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;resize:vertical;font-size:.85rem}
+    .field textarea{min-height:72px}
+    .hint{font-size:.74rem;color:var(--muted);margin:6px 0 0;line-height:1.4}
   </style>
 </head>
 <body class="theme-mimo">
@@ -126,6 +128,12 @@
     <div class="field">
       <label>Свой системный промпт</label>
       <textarea id="customPrompt" placeholder="Пусто = промпт выбранного режима"></textarea>
+    </div>
+    <div class="field">
+      <label>☁ Синхронизация с ПК</label>
+      <input type="url" id="syncUrl" placeholder="http://192.168.100.83:7860"/>
+      <p class="hint">ПК включён, запущен MiMo Hub, телефон в той же Wi‑Fi. Диалоги объединяются автоматически.</p>
+      <button class="btn-sm" id="syncNowBtn" style="margin-top:8px;width:100%">🔄 Синхронизировать сейчас</button>
     </div>
   </div>
 </div>
@@ -173,6 +181,7 @@
 const API_URL="https://token-plan-sgp.xiaomimimo.com/v1/chat/completions";
 const API_KEY="tp-sul5stc88h1g1yd1s265411sw1qrmh1m4z53pi94jffwx7fe";
 const STORAGE_KEY="mimo_phone_v3";
+const SYNC_URL_KEY="mimo_sync_url";
 
 const MODELS=[
   {id:"mimo-v2.5-pro",name:"MiMo Pro",desc:"Макс. качество"},
@@ -211,6 +220,8 @@ let chatId=state.activeId;
 let atts=[];
 let busy=false;
 let abortCtrl=null;
+let syncTimer=null;
+let syncBusy=false;
 
 const $=id=>document.getElementById(id);
 const S=()=>state.settings;
@@ -242,9 +253,80 @@ function loadState(){
   return defaultState();
 }
 
+function getSyncUrl(){
+  const url=($("syncUrl")?.value||localStorage.getItem(SYNC_URL_KEY)||"").trim().replace(/\/$/,"");
+  return url;
+}
+
+function toSyncPayload(st){
+  return{version:1,updatedAt:st.updatedAt||Date.now(),activeId:st.activeId,settings:st.settings,chats:st.chats};
+}
+
+function mergeSyncState(local,remote){
+  const a=toSyncPayload(local);
+  const b=remote&&remote.chats?remote:null;
+  if(!b)return local;
+  const merged={version:1,updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0),settings:{...a.settings},chats:{...a.chats},activeId:a.activeId};
+  for(const[id,chat]of Object.entries(b.chats||{})){
+    const cur=merged.chats[id];
+    if(!cur||(chat.updatedAt||0)>(cur.updatedAt||0))merged.chats[id]=chat;
+  }
+  if((b.updatedAt||0)>(a.updatedAt||0)){
+    merged.settings={...merged.settings,...(b.settings||{})};
+    if(b.activeId&&merged.chats[b.activeId])merged.activeId=b.activeId;
+  }
+  merged.updatedAt=Date.now();
+  return{activeId:merged.activeId,settings:merged.settings,chats:merged.chats,updatedAt:merged.updatedAt};
+}
+
+function setSyncStatus(extra){
+  const base=busy?"● MiMo думает...":"● Готов";
+  $("status").textContent=base+" · "+extra;
+}
+
+async function pullSyncFromPc(){
+  const base=getSyncUrl();
+  if(!base){setSyncStatus("☁ Укажите URL ПК");return false;}
+  try{
+    const res=await fetch(base+"/api/sync",{cache:"no-store"});
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    const remote=await res.json();
+    state=mergeSyncState(state,remote);
+    chatId=state.activeId;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+    setSyncStatus("☁ Синхронизировано");
+    return true;
+  }catch(e){
+    setSyncStatus("☁ ПК недоступен");
+    return false;
+  }
+}
+
+async function pushSyncToPc(){
+  const base=getSyncUrl();
+  if(!base||syncBusy)return;
+  syncBusy=true;
+  state.updatedAt=Date.now();
+  try{
+    const res=await fetch(base+"/api/sync",{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(toSyncPayload(state))
+    });
+    setSyncStatus(res.ok?"☁ Сохранено на ПК":"☁ Ошибка синхр.");
+  }catch(_){
+    setSyncStatus("☁ ПК недоступен");
+  }finally{
+    syncBusy=false;
+  }
+}
+
 function saveState(){
   state.activeId=chatId;
+  state.updatedAt=Date.now();
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(pushSyncToPc,400);
 }
 
 function cur(){return state.chats[chatId];}
@@ -280,7 +362,7 @@ function setLoading(on){
   $("sendBtn").disabled=on;
   $("regenBtn").disabled=on;
   $("stopBtn").style.display=on?"grid":"none";
-  $("status").textContent=on?"● MiMo думает...":"● Готов";
+  if(!on)setSyncStatus(getSyncUrl()?"☁ Онлайн":"☁ Локально");
 }
 
 function openDrawer(){$("drawer").classList.add("open");$("backdrop").classList.add("open");}
@@ -495,7 +577,8 @@ async function send(text,regen=false){
   }
 }
 
-function init(){
+async function init(){
+  $("syncUrl").value=localStorage.getItem(SYNC_URL_KEY)||"";
   $("modelSel").innerHTML=MODELS.map(m=>`<option value="${m.id}">${m.name} — ${m.desc}</option>`).join("");
   $("modeSel").innerHTML=Object.entries(MODES).map(([k,m])=>`<option value="${k}">${m.icon} ${m.name}</option>`).join("");
   $("themeSel").innerHTML=THEMES.map(t=>`<option value="${t.id}">● ${t.name}</option>`).join("");
@@ -512,7 +595,15 @@ function init(){
 
   applyTheme(S().theme);
   renderModes();
+  await pullSyncFromPc();
+  $("modelSel").value=S().model;
+  $("modeSel").value=S().mode;
+  $("themeSel").value=S().theme||"mimo";
   renderAll();
+
+  $("syncUrl").onchange=()=>{localStorage.setItem(SYNC_URL_KEY,$("syncUrl").value.trim());pullSyncFromPc();};
+  $("syncNowBtn").onclick=async()=>{localStorage.setItem(SYNC_URL_KEY,$("syncUrl").value.trim());if(await pullSyncFromPc())await pushSyncToPc();renderAll();closeSettings();};
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")pullSyncFromPc().then(ok=>{if(ok)renderAll();});});
 
   $("modelSel").onchange=()=>{S().model=$("modelSel").value;saveState();};
   $("modeSel").onchange=()=>setMode($("modeSel").value,true);
