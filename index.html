@@ -2,6 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -26,6 +28,9 @@
     .top{background:var(--panel);border-bottom:2px solid var(--accent);padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top));display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .ib{width:44px;height:44px;border:none;border-radius:12px;background:var(--accent);color:var(--send-fg);font-size:1.05rem;font-weight:900;flex-shrink:0;cursor:pointer;display:grid;place-items:center}
     .ib.sec{background:var(--sidebar);border:1px solid var(--border);color:var(--text)}
+    .ib.file-btn{width:52px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:3px;line-height:1}
+    .ib.file-btn .btn-ico{font-size:1.15rem}
+    .ib.file-btn .btn-lbl{font-size:.58rem;font-weight:800;letter-spacing:.01em}
     .ib:disabled{opacity:.4}
     .brand{display:flex;align-items:center;gap:8px;margin-right:auto;min-width:0}
     .logo{width:36px;height:36px;border-radius:11px;background:var(--grad);display:grid;place-items:center;color:var(--send-fg);font-weight:900;font-size:.95rem;flex-shrink:0}
@@ -146,7 +151,7 @@
     <button class="ib sec" id="chatsBtn" title="Диалоги">💬</button>
     <div class="brand">
       <div class="logo">M</div>
-      <div class="brand-t">MiMo<small>Мобильный Hub</small></div>
+      <div class="brand-t">MiMo<small>Мобильный v3.5 · файлы 📎📷</small></div>
     </div>
     <button class="ib sec" id="settingsBtn" title="Настройки">⚙</button>
     <button class="ib sec" id="regenBtn" title="Повторить ответ">↻</button>
@@ -173,10 +178,14 @@
     <div class="attach-row" id="atts"></div>
     <div class="box">
       <div class="composer-actions">
-        <button class="ib sec" id="attachBtn" title="Файлы: текст, код, PDF, Word, Excel, фото">📎</button>
-        <button class="ib sec" id="cameraBtn" title="Сделать фото">📷</button>
+        <button type="button" class="ib sec file-btn" id="attachBtn" title="Прикрепить файл">
+          <span class="btn-ico">📎</span><span class="btn-lbl">Файл</span>
+        </button>
+        <button type="button" class="ib sec file-btn" id="cameraBtn" title="Сделать фото">
+          <span class="btn-ico">📷</span><span class="btn-lbl">Фото</span>
+        </button>
       </div>
-      <input type="file" id="fileIn" multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.json,.csv,.html,.xml,.yaml,.yml,.java,.cpp,.c,.h,.cs,.go,.rs,.rb,.php,.swift,.kt,.sh,.bat,.ps1,.sql,.log,.ini,.cfg,.toml,.pdf,.docx,.xlsx,.xls,.rtf,.vue,.svelte,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.heif,image/*"/>
+      <input type="file" id="fileIn" multiple accept="*/*"/>
       <input type="file" id="cameraIn" accept="image/*" capture="environment"/>
       <textarea id="input" rows="1" placeholder="Сообщение..."></textarea>
       <button class="ib" id="sendBtn" title="Отправить">➤</button>
@@ -480,12 +489,13 @@ function formatUser(text){
 }
 
 function fileExt(name){return"."+(name.split(".").pop()||"").toLowerCase();}
-function fileKind(ext){
-  if(IMAGE_EXTS.includes(ext))return"image";
-  if(PDF_EXTS.includes(ext))return"pdf";
-  if(DOCX_EXTS.includes(ext))return"docx";
-  if(XLSX_EXTS.includes(ext))return"xlsx";
+function fileKind(ext,mime){
+  if(IMAGE_EXTS.includes(ext)||(mime&&mime.startsWith("image/")))return"image";
+  if(PDF_EXTS.includes(ext)||mime==="application/pdf")return"pdf";
+  if(DOCX_EXTS.includes(ext)||mime==="application/vnd.openxmlformats-officedocument.wordprocessingml.document")return"docx";
+  if(XLSX_EXTS.includes(ext)||mime==="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"||mime==="application/vnd.ms-excel")return"xlsx";
   if(TEXT_EXTS.includes(ext))return"text";
+  if(mime&&(mime.startsWith("text/")||mime==="application/json"||mime==="application/javascript"))return"text";
   return null;
 }
 function attIcon(kind){return{image:"📷",pdf:"📄",docx:"📄",xlsx:"📊",text:"📝"}[kind]||"📎";}
@@ -557,8 +567,16 @@ async function extractXlsxText(file){
 
 async function processFile(file){
   const ext=fileExt(file.name);
-  const kind=fileKind(ext);
-  if(!kind)throw new Error(`Формат ${ext} не поддерживается`);
+  let kind=fileKind(ext,file.type||"");
+  if(!kind&&file.size<MAX_TEXT){
+    try{
+      const probe=await file.text();
+      if(probe&&!/[\x00-\x08\x0E-\x1F]/.test(probe.slice(0,2000))){
+        return{kind:"text",name:file.name,size:file.size,content:probe};
+      }
+    }catch(_){}
+  }
+  if(!kind)throw new Error(`Формат ${ext||file.type||"файла"} не поддерживается.\nПопробуйте: txt, pdf, docx, xlsx, jpg, png`);
   if(kind==="text"&&file.size>MAX_TEXT)throw new Error(`${file.name}: макс. ${Math.round(MAX_TEXT/1024)} KB`);
   if(kind==="image"&&file.size>MAX_IMAGE)throw new Error(`${file.name}: макс. ${Math.round(MAX_IMAGE/1024/1024)} MB`);
   if(kind!=="text"&&kind!=="image"&&file.size>MAX_DOC)throw new Error(`${file.name}: макс. ${Math.round(MAX_DOC/1024/1024)} MB`);
@@ -765,10 +783,10 @@ async function init(){
   $("stopBtn").onclick=()=>abortCtrl?.abort();
   $("input").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
   $("input").oninput=autoResize;
-  $("attachBtn").onclick=()=>$("fileIn").click();
-  $("cameraBtn").onclick=()=>$("cameraIn").click();
-  $("fileIn").onchange=onFiles;
-  $("cameraIn").onchange=onFiles;
+  $("attachBtn").addEventListener("click",e=>{e.preventDefault();$("fileIn").click();});
+  $("cameraBtn").addEventListener("click",e=>{e.preventDefault();$("cameraIn").click();});
+  $("fileIn").addEventListener("change",onFiles);
+  $("cameraIn").addEventListener("change",onFiles);
 
   $("chatsBtn").onclick=openDrawer;
   $("backdrop").onclick=()=>{closeDrawer();closeSettings();};
