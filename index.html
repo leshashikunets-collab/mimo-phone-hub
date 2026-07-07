@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="MiMo"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#ff6900"/>
+  <title>MiMo</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root{--bg:#0d0d0f;--panel:#1b1b21;--border:#2a2a33;--text:#ececf1;--muted:#9b9ba7;--accent:#ff6900;--accent-soft:rgba(255,105,0,.15);--user:#2a2a35;--grad:linear-gradient(135deg,#ff6900,#ff9a3c)}
+    *{box-sizing:border-box} body{margin:0;font-family:Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden}
+    .app{display:flex;flex-direction:column;height:100dvh}
+    .header{background:var(--panel);border-bottom:2px solid var(--accent);padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .brand{font-weight:800;font-size:1rem;margin-right:auto}
+    .ctrl{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:.85rem;font-weight:600;min-width:0;flex:1}
+    .modes{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch}
+    .chip{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:999px;padding:7px 12px;font-size:.82rem;white-space:nowrap;flex-shrink:0}
+    .chip.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:700}
+    .msgs{flex:1;overflow-y:auto;padding:12px 12px 100px;-webkit-overflow-scrolling:touch}
+    .inner{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+    .welcome{text-align:center;padding:30px 10px}
+    .welcome h1{margin:0 0 8px;font-size:1.6rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .welcome p{color:var(--muted);font-size:.9rem}
+    .sg{display:grid;grid-template-columns:1fr;gap:8px;margin-top:16px}
+    .sg button{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);text-align:left;font-size:.9rem}
+    .msg{display:grid;grid-template-columns:32px 1fr;gap:10px}
+    .av{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:.72rem;font-weight:700;background:var(--panel);border:1px solid var(--border)}
+    .av.ai{background:var(--grad);color:#111;border:none}
+    .bubble{padding:10px 12px;border-radius:12px;line-height:1.55;word-break:break-word;font-size:.95rem}
+    .msg.user .bubble{background:var(--user)}
+    .bubble pre{background:#0a0a0f;border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;font-size:.82rem}
+    .composer{position:fixed;left:0;right:0;bottom:0;padding:8px 12px 16px;background:linear-gradient(transparent,var(--bg) 25%)}
+    .attach-row{max-width:800px;margin:0 auto 6px;display:flex;flex-wrap:wrap;gap:5px}
+    .att{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:.75rem;display:flex;gap:6px;align-items:center}
+    .box{max-width:800px;margin:0 auto;background:var(--panel);border:2px solid var(--border);border-radius:18px;display:flex;gap:6px;padding:8px 10px;align-items:flex-end}
+    .box:focus-within{border-color:var(--accent)}
+    textarea{flex:1;border:none;outline:none;background:transparent;color:var(--text);font:inherit;font-size:16px;line-height:1.4;max-height:120px;resize:none;padding:6px 0}
+    .ib{width:40px;height:40px;border:none;border-radius:10px;background:var(--accent);color:#111;font-size:1.1rem;font-weight:900;flex-shrink:0}
+    .ib.sec{background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:1rem}
+    .ib:disabled{opacity:.4}
+    #fileIn{display:none}
+    .status{font-size:.75rem;color:var(--muted);width:100%;text-align:center}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="brand">🤖 MiMo</div>
+    <select class="ctrl" id="modelSel"></select>
+    <select class="ctrl" id="modeSel"></select>
+  </div>
+  <div class="modes" id="modes"></div>
+  <div class="status" id="status">Готов · работает автономно с телефона</div>
+  <div class="msgs" id="msgs"><div class="inner" id="inner"></div></div>
+  <div class="composer">
+    <div class="attach-row" id="atts"></div>
+    <div class="box">
+      <button class="ib sec" id="attachBtn">📎</button>
+      <input type="file" id="fileIn" multiple accept=".txt,.md,.py,.js,.json,.csv,.html,.sql,.xml,.yaml,.yml,.java,.cpp,.go,.rs,.log"/>
+      <textarea id="input" rows="1" placeholder="Сообщение..."></textarea>
+      <button class="ib" id="sendBtn">➤</button>
+    </div>
+  </div>
+</div>
+<script>
+const API_URL = "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions";
+const API_KEY = "tp-sul5stc88h1g1yd1s265411sw1qrmh1m4z53pi94jffwx7fe";
+const MODELS = [
+  {id:"mimo-v2.5-pro", name:"MiMo Pro"},
+  {id:"mimo-v2.5", name:"MiMo v2.5"}
+];
+const MODES = {
+  chat:{name:"Чат",icon:"💬",t:.7,tokens:2000,p:"Ты — MiMo, полезный ассистент Xiaomi. Отвечай на русском.",sg:["Что ты умеешь?","Помоги спланировать день","Объясни простыми словами","Совет по продуктивности"]},
+  code:{name:"Код",icon:"💻",t:.3,tokens:4000,p:"Ты — эксперт-программист MiMo. Пиши чистый код с комментариями.",sg:["REST API на Python","Найди ошибку в коде","Объясни async/await","SQL с JOIN"]},
+  creative:{name:"Творчество",icon:"✨",t:.95,tokens:3000,p:"Ты — креативный писатель MiMo.",sg:["Сюжет sci-fi","Пост для соцсетей","Названия стартапа","Персонаж RPG"]},
+  analyst:{name:"Аналитик",icon:"📊",t:.4,tokens:3000,p:"Ты — аналитик MiMo. Структурируй ответы, таблицы, плюсы/минусы.",sg:["SWOT-анализ","Сравни в таблице","Разбери гипотезу","План исследования"]},
+  teacher:{name:"Учитель",icon:"📚",t:.5,tokens:2500,p:"Ты — преподаватель MiMo. Объясняй от простого к сложному.",sg:["Основы Python","Теорема Пифагора","Что такое ML?","Как работает DNS?"]},
+};
+let mode="chat", msgs=[], atts=[], busy=false;
+
+const $=id=>document.getElementById(id);
+function load(){try{return JSON.parse(localStorage.getItem("mimo_phone")||"null")}catch(_){}return null}
+function save(){localStorage.setItem("mimo_phone",JSON.stringify({mode,msgs:msgs.slice(-50)}))}
+
+function init(){
+  $("modelSel").innerHTML=MODELS.map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
+  $("modeSel").innerHTML=Object.entries(MODES).map(([k,m])=>`<option value="${k}">${m.icon} ${m.name}</option>`).join("");
+  const s=load();
+  if(s){mode=s.mode||"chat";msgs=s.msgs||[];$("modeSel").value=mode}
+  renderModes(); render();
+  $("modeSel").onchange=()=>setMode($("modeSel").value);
+  $("sendBtn").onclick=()=>send();
+  $("input").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
+  $("attachBtn").onclick=()=>$("fileIn").click();
+  $("fileIn").onchange=onFiles;
+}
+function setMode(k){mode=k;renderModes();render();save()}
+function renderModes(){
+  $("modes").innerHTML="";
+  Object.entries(MODES).forEach(([k,m])=>{
+    const b=document.createElement("button");
+    b.className="chip"+(mode===k?" on":"");
+    b.textContent=m.icon+" "+m.name;
+    b.onclick=()=>{setMode(k);$("modeSel").value=k};
+    $("modes").appendChild(b);
+  });
+}
+function render(){
+  const inner=$("inner"); inner.innerHTML="";
+  const m=MODES[mode];
+  if(!msgs.length){
+    inner.innerHTML=`<div class="welcome"><h1>${m.icon} ${m.name}</h1><p>Работает с телефона без ПК. Нужен только интернет.</p><div class="sg" id="sg"></div></div>`;
+    m.sg.forEach(t=>{const b=document.createElement("button");b.textContent=t;b.onclick=()=>send(t);$("sg").appendChild(b)});
+    return;
+  }
+  msgs.forEach(x=>addMsg(x.role,x.content,false));
+  scroll();
+}
+function addMsg(role,content,anim=true){
+  const d=document.createElement("div");
+  d.className="msg "+role;
+  const html=role==="assistant"?marked.parse(content||""):esc(content).replace(/\n/g,"<br>");
+  d.innerHTML=`<div class="av ${role==="assistant"?"ai":""}">${role==="user"?"Вы":"M"}</div><div class="bubble">${html}</div>`;
+  $("inner").appendChild(d);
+  if(anim)scroll();
+  return d.querySelector(".bubble");
+}
+function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function scroll(){$("msgs").scrollTop=$("msgs").scrollHeight}
+
+async function onFiles(e){
+  for(const f of e.target.files){
+    if(f.size>300000){alert(f.name+" слишком большой");continue}
+    try{atts.push({name:f.name,content:await f.text()})}catch(_){alert("Не удалось прочитать "+f.name)}
+  }
+  e.target.value=""; renderAtts();
+}
+function renderAtts(){
+  $("atts").innerHTML="";
+  atts.forEach((a,i)=>{
+    const d=document.createElement("div");
+    d.className="att";
+    d.innerHTML=`📎 ${a.name} <button onclick="rmAtt(${i})">×</button>`;
+    $("atts").appendChild(d);
+  });
+}
+function rmAtt(i){atts.splice(i,1);renderAtts()}
+
+async function send(text){
+  if(busy)return;
+  let user=(text||$("input").value).trim();
+  let parts=[];
+  atts.forEach(a=>parts.push(`[Файл: ${a.name}]\n\`\`\`\n${a.content}\n\`\`\``));
+  if(user)parts.push(user);
+  const content=parts.join("\n\n");
+  if(!content)return;
+  msgs.push({role:"user",content});
+  $("input").value=""; atts=[]; renderAtts(); save(); render();
+  const bubble=addMsg("assistant","");
+  busy=true; $("sendBtn").disabled=true; $("status").textContent="MiMo думает...";
+  const m=MODES[mode];
+  const apiMsgs=[{role:"system",content:m.p},...msgs];
+  try{
+    const res=await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+API_KEY},
+      body:JSON.stringify({model:$("modelSel").value,messages:apiMsgs,temperature:m.t,max_tokens:m.tokens,stream:true})
+    });
+    if(!res.ok)throw new Error(await res.text());
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    let buf="", reply="";
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      for(const line of buf.split("\n")){
+        if(!line.startsWith("data: "))continue;
+        const p=line.slice(6);
+        if(p==="[DONE]")continue;
+        try{
+          const j=JSON.parse(p);
+          if(j.error)throw new Error(j.error.message||JSON.stringify(j.error));
+          if(!j.choices||!j.choices.length)continue;
+          const c=j.choices[0].delta?.content;
+          if(c){reply+=c;bubble.innerHTML=marked.parse(reply);scroll()}
+        }catch(e){if(e.message&&!e.message.includes("JSON"))throw e}
+      }
+      buf=buf.split("\n").pop()||"";
+    }
+    msgs.push({role:"assistant",content:reply});
+    save();
+  }catch(e){
+    bubble.innerHTML=`<span style="color:#ff6b6b">Ошибка: ${esc(e.message)}</span>`;
+  }finally{
+    busy=false;$("sendBtn").disabled=false;$("status").textContent="Готов · работает автономно с телефона";
+  }
+}
+init();
+</script>
+</body>
+</html>
