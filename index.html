@@ -178,10 +178,12 @@ async function send(text){
       const {value,done}=await reader.read();
       if(done)break;
       buf+=dec.decode(value,{stream:true});
-      for(const line of buf.split("\n")){
+      const lines=buf.split("\n");
+      buf=lines.pop()||"";
+      for(const line of lines){
         if(!line.startsWith("data: "))continue;
-        const p=line.slice(6);
-        if(p==="[DONE]")continue;
+        const p=line.slice(6).trim();
+        if(!p||p==="[DONE]")continue;
         try{
           const j=JSON.parse(p);
           if(j.error)throw new Error(j.error.message||JSON.stringify(j.error));
@@ -190,7 +192,6 @@ async function send(text){
           if(c){reply+=c;bubble.innerHTML=marked.parse(reply);scroll()}
         }catch(e){if(e.message&&!e.message.includes("JSON"))throw e}
       }
-      buf=buf.split("\n").pop()||"";
     }
     msgs.push({role:"assistant",content:reply});
     save();
